@@ -11,18 +11,23 @@ import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.location.SettingInjectorService;
 import android.provider.Settings;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
+    private static final String TAG = "MainActivity";
 
     private SensorManager mSensorManager;
     private Sensor mSensorProximity, mSensorLight;
@@ -34,11 +39,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean isFlashLightOn, hasChecked = false;
     private ContentResolver mContentResolver;
     private Window mWindow;
-    private float mBrightness;
-    private RadioButton rBtn1, rBtn2, rBtn3, rBtn4, rBtn5, rBtnSystem, rBtnWindow;
+    private float mBrightness = 0;
+    private Button btn1, btn2, btn3, btn4, btn5;
+    private RadioButton rBtnSystem, rBtnWindow;
     private TextView tvTitle, tvCurrent, tvSystemOrWindow;
-    private RadioGroup rGroupBrightness, rGroupSysOrWin;
-    private double brightMultiplier = 1;
+    private RadioGroup rGroupSysOrWin;
+    private double brightMultiplier = 0;
     private float lastLightValue = 100;
 
 
@@ -47,10 +53,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initComponents();
+        initSensors();
+    }
 
+    private void initSensors() {
 
         mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
-        if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null && (isLightSensorPresent == false)) {
+        if (mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) != null) {
             mSensorLight = mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
             mSensorManager.registerListener(this, mSensorLight, SensorManager.SENSOR_DELAY_FASTEST);
             isLightSensorPresent = true;
@@ -58,10 +67,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             isLightSensorPresent = false;
             Toast.makeText(this, "No light sensor available", Toast.LENGTH_SHORT).show();
         }
-        initScreenBrightness();
+        initCameraFlashlight();
 
-
-        if (mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY) != null && (isProximitySensorPresent == false)) {
+        if (mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY) != null) {
             mSensorProximity = mSensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
             mSensorManager.registerListener(this, mSensorProximity, SensorManager.SENSOR_DELAY_FASTEST);
             isProximitySensorPresent = true;
@@ -70,8 +78,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             Toast.makeText(this, "No Proximity sensor available", Toast.LENGTH_SHORT).show();
         }
 
-        initCameraFlashlight();
-
+        initScreenBrightness();
 
     }
 
@@ -84,46 +91,28 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         tvTitle = findViewById(R.id.tvTitle);
         tvCurrent = findViewById(R.id.tvCurrentSetting);
         tvSystemOrWindow = findViewById(R.id.tvSystemOrWindow);
-
-        rGroupBrightness = findViewById(R.id.rGroupBrightness);
-
-        rGroupBrightness.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(RadioGroup group, int checkedId) {
-                rBtn1 = findViewById(R.id.rBtn1);
-                if (rBtn1.isChecked()) {
-                    setBrightnessLevel(0.05);
-                }
-                rBtn2 = findViewById(R.id.rBtn2);
-                if (rBtn2.isChecked()) {
-                    setBrightnessLevel(0.2);
-                }
-                rBtn3 = findViewById(R.id.rBtn3);
-                if (rBtn3.isChecked()) {
-                    setBrightnessLevel(0.5);
-                }
-                rBtn4 = findViewById(R.id.rBtn4);
-                if (rBtn4.isChecked()) {
-                    setBrightnessLevel(0.7);
-                }
-                rBtn5 = findViewById(R.id.rBtn5);
-                if (rBtn5.isChecked()) {
-                    setBrightnessLevel(0.9);
-                }
-            }
-        });
-
+        btn1 = findViewById(R.id.btn1);
+        btn2 = findViewById(R.id.btn2);
+        btn3 = findViewById(R.id.btn3);
+        btn4 = findViewById(R.id.btn4);
+        btn5 = findViewById(R.id.btn5);
+        rBtnSystem = findViewById(R.id.rBtnSystem);
+        rBtnWindow = findViewById(R.id.rBtnWindow);
         rGroupSysOrWin = findViewById(R.id.rGroupSysOrWin);
+
+        btn1.setOnClickListener(new ButtonListener());
+        btn2.setOnClickListener(new ButtonListener());
+        btn3.setOnClickListener(new ButtonListener());
+        btn4.setOnClickListener(new ButtonListener());
+        btn5.setOnClickListener(new ButtonListener());
 
         rGroupSysOrWin.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
-                rBtnSystem = findViewById(R.id.rBtnSystem);
-                rBtnWindow = findViewById(R.id.rBtnWindow);
                 if (rBtnSystem.isChecked()) {
                     setSystemBrightness(true);
                     buildAlert();
-                } else {
+                } else if (rBtnWindow.isChecked()) {
                     setSystemBrightness(false);
                 }
             }
@@ -137,6 +126,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     public void setBrightnessLevel(double brightMultiplier) {
         this.brightMultiplier = brightMultiplier;
+    }
+
+    private class ButtonListener implements View.OnClickListener {
+
+        @Override
+        public void onClick(View v) {
+            if (v.equals(btn1)) {
+                setBrightnessLevel(0.0);
+            } else if (v.equals(btn2)) {
+                setBrightnessLevel(0.2);
+            } else if (v.equals(btn3)) {
+                setBrightnessLevel(0.5);
+            } else if (v.equals(btn4)) {
+                setBrightnessLevel(0.7);
+            } else if (v.equals(btn5)) {
+                setBrightnessLevel(0.9);
+            }
+        }
     }
 
     public void buildAlert() {
@@ -163,9 +170,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         AlertDialog alertDialog = builder.create();
         alertDialog.show();
 
-
     }
-
 
     protected void onResume() {
         super.onResume();
@@ -198,30 +203,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        distanceFromPhone = event.values[0];
+        if (distanceFromPhone <= mSensorProximity.getMaximumRange()) {
+
+            if (!isFlashLightOn) {
+                turnTorchLightOn();
+            }
+        } else {
+            if (isFlashLightOn) {
+                turnTorchLightOff();
+            }
+        }
 
         if (event.sensor.equals(mSensorLight)) {
+
             changeScreenBrightness(event.values[0]);
             lastLightValue = event.values[0];
-
-        } else if (event.sensor.equals(mSensorProximity)) {
-
-            distanceFromPhone = event.values[0];
-            if (distanceFromPhone <= mSensorProximity.getMaximumRange()) {
-
-
-                if (!isFlashLightOn) {
-                    turnTorchLightOn();
-                }
-            } else {
-                if (isFlashLightOn) {
-                    turnTorchLightOff();
-                }
-            }
-
-           float light = event.values[0];
-            if (light > 0 && light < 100) {
-                changeScreenBrightness((float) brightMultiplier / light);
-            }
 
         }
 
@@ -232,16 +229,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         float changedBrightness = (float) (brightMultiplier + ((1 / brightness) / 4));
 
-
         if (brightness > 0 && brightness < 100) {
 
             if (!changeSystemBrightness) {
+                Log.d(TAG, "changeScreenBrightness: " + changedBrightness + " " + brightness + "multiplier: " + brightMultiplier);
                 final WindowManager.LayoutParams mLayoutParams = mWindow.getAttributes();
                 mLayoutParams.screenBrightness = changedBrightness;
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         mWindow.setAttributes(mLayoutParams);
+
                     }
                 });
 
@@ -250,10 +248,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     Intent i = new Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS);
                     startActivity(i);
                     hasChecked = true;
-                } else {
-                    Settings.System.putInt(mContentResolver, Settings.System.SCREEN_BRIGHTNESS, (int) (255 * changedBrightness));
                 }
 
+            } else if (changeSystemBrightness) {
+                Log.d(TAG, "changeSystemBrightness oranges " + changeSystemBrightness);
+                Settings.System.putInt(mContentResolver, Settings.System.SCREEN_BRIGHTNESS, (int) (255 * changedBrightness));
             }
         }
     }
