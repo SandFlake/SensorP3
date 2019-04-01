@@ -11,7 +11,6 @@ import android.hardware.SensorManager;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
-import android.location.SettingInjectorService;
 import android.provider.Settings;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -39,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean isFlashLightOn, hasChecked = false;
     private ContentResolver mContentResolver;
     private Window mWindow;
-    private float mBrightness = 0;
+    private float brightness = 0;
     private Button btn1, btn2, btn3, btn4, btn5;
     private RadioButton rBtnSystem, rBtnWindow;
     private TextView tvTitle, tvCurrent, tvSystemOrWindow;
@@ -54,6 +53,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         setContentView(R.layout.activity_main);
         initComponents();
         initSensors();
+        initScreenBrightness();
     }
 
     private void initSensors() {
@@ -134,14 +134,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         public void onClick(View v) {
             if (v.equals(btn1)) {
                 setBrightnessLevel(0.0);
+                changeScreenBrightness((float)0.0);
             } else if (v.equals(btn2)) {
                 setBrightnessLevel(0.2);
+                changeScreenBrightness((float)0.2);
             } else if (v.equals(btn3)) {
                 setBrightnessLevel(0.5);
+                changeScreenBrightness((float)0.5);
             } else if (v.equals(btn4)) {
                 setBrightnessLevel(0.7);
+                changeScreenBrightness((float)0.7);
             } else if (v.equals(btn5)) {
                 setBrightnessLevel(0.9);
+                changeScreenBrightness((float)0.9);
+
             }
         }
     }
@@ -203,17 +209,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        distanceFromPhone = event.values[0];
-        if (distanceFromPhone <= mSensorProximity.getMaximumRange()) {
 
-            if (!isFlashLightOn) {
-                turnTorchLightOn();
-            }
-        } else {
-            if (isFlashLightOn) {
-                turnTorchLightOff();
-            }
-        }
+           distanceFromPhone = event.values[0];
+
+           if (distanceFromPhone <= mSensorProximity.getMaximumRange()) {
+
+               if (!isFlashLightOn) {
+                   turnTorchLightOn();
+               }
+           } else {
+               if (isFlashLightOn) {
+                   turnTorchLightOff();
+
+
+           }
+       }
 
         if (event.sensor.equals(mSensorLight)) {
 
@@ -239,7 +249,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     @Override
                     public void run() {
                         mWindow.setAttributes(mLayoutParams);
-
                     }
                 });
 
@@ -253,6 +262,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             } else if (changeSystemBrightness) {
                 Log.d(TAG, "changeSystemBrightness oranges " + changeSystemBrightness);
                 Settings.System.putInt(mContentResolver, Settings.System.SCREEN_BRIGHTNESS, (int) (255 * changedBrightness));
+                final WindowManager.LayoutParams mLayoutParams = mWindow.getAttributes();
+                mLayoutParams.screenBrightness = changedBrightness;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mWindow.setAttributes(mLayoutParams);
+                    }
+                });
             }
         }
     }
